@@ -166,25 +166,83 @@ const html = `<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
 <title>${esc(title)} · ${dateLabel}</title>
+<script>
+// 在首帧绘制前恢复主题，避免页面闪烁；未设置时跟随系统。
+(function () {
+  try {
+    const saved = localStorage.getItem('sat-notebook-theme');
+    const dark = saved ? saved === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.classList.add(dark ? 'dark' : 'light');
+  } catch (_) {}
+})();
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..700&family=Instrument+Sans:ital,wght@0,400..700;1,400&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 :root {
+  color-scheme: light;
   --paper: 245 239 228;
   --paper-raised: 250 244 234;
+  --panel: 226 216 196;
   --ink: 26 22 20;
   --ink-muted: 139 127 110;
   --ink-faint: 178 166 146;
   --hairline: 227 218 199;
   --accent: 139 30 40;
+  --accent-ink: 245 239 228;
   --ok: 50 135 78;
   --bad: 184 40 52;
+  --warn: 201 154 46;
+  --cb: 50 77 199;
+  --cb-ink: 255 255 255;
   --cb-tag: 42 38 36;
+  --cb-dashed: 26 22 20;
   --font-serif: "Fraunces", "Iowan Old Style", Georgia, serif;
   --font-sans: "Instrument Sans", ui-sans-serif, system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+:root.dark {
+  color-scheme: dark;
+  --paper: 20 18 16;
+  --paper-raised: 28 25 22;
+  --panel: 8 7 6;
+  --ink: 240 232 217;
+  --ink-muted: 154 143 125;
+  --ink-faint: 105 96 84;
+  --hairline: 42 38 32;
+  --accent: 232 176 74;
+  --accent-ink: 20 18 16;
+  --ok: 148 188 140;
+  --bad: 216 140 120;
+  --warn: 224 180 82;
+  --cb: 138 158 236;
+  --cb-ink: 20 18 16;
+  --cb-tag: 240 232 217;
+  --cb-dashed: 240 232 217;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    color-scheme: dark;
+    --paper: 20 18 16;
+    --paper-raised: 28 25 22;
+    --panel: 8 7 6;
+    --ink: 240 232 217;
+    --ink-muted: 154 143 125;
+    --ink-faint: 105 96 84;
+    --hairline: 42 38 32;
+    --accent: 232 176 74;
+    --accent-ink: 20 18 16;
+    --ok: 148 188 140;
+    --bad: 216 140 120;
+    --warn: 224 180 82;
+    --cb: 138 158 236;
+    --cb-ink: 20 18 16;
+    --cb-tag: 240 232 217;
+    --cb-dashed: 240 232 217;
+  }
 }
 * { box-sizing: border-box; }
 html { background: rgb(var(--paper)); }
@@ -251,7 +309,7 @@ body {
 .idx-band { font-family: var(--font-mono); font-size: 10px; color: rgb(var(--ink-faint)); }
 
 /* ---- 工具条 ---- */
-.toolbar { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.5rem; }
 .toolbar button {
   font-family: var(--font-mono);
   font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
@@ -263,6 +321,7 @@ body {
   cursor: pointer;
 }
 .toolbar button:hover { border-color: rgb(var(--accent)); color: rgb(var(--accent)); }
+#toggle-theme { margin-left: auto; }
 
 /* ---- 题目 ---- */
 .questions { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 2.25rem; }
@@ -271,7 +330,7 @@ body {
 .q-no {
   font-family: var(--font-mono);
   font-size: 12px; font-weight: 700; letter-spacing: 0.14em;
-  background: rgb(var(--cb-tag)); color: rgb(var(--paper));
+  background: rgb(var(--cb-tag)); color: rgb(var(--cb-ink));
   padding: 2px 7px; border-radius: 3px;
 }
 .q-meta {
@@ -319,7 +378,18 @@ body {
 }
 .q-passage figure { margin: 1rem 0; }
 .q-passage figure.image { text-align: center; }
-.q-passage svg, .q-prompt svg { max-width: 100%; height: auto; }
+.q-passage svg, .q-prompt svg {
+  max-width: 100%; height: auto;
+  filter: url("#q-img-tint-light");
+}
+:root.dark .q-passage svg, :root.dark .q-prompt svg {
+  filter: url("#q-img-tint-dark");
+}
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) .q-passage svg, :root:not(.light) .q-prompt svg {
+    filter: url("#q-img-tint-dark");
+  }
+}
 .q-passage img, .q-prompt img { max-width: 100%; height: auto; }
 
 math { font-size: 1.05em; }
@@ -438,10 +508,39 @@ body.answers-hidden .question:not(.is-revealed) .q-opt.is-picked-wrong {
 @media (max-width: 640px) {
   .page { padding: 2rem 1.1rem 4rem; }
   .q-status { margin-left: 0; }
+  #toggle-theme { margin-left: 0; }
+}
+@media print {
+  :root, :root.dark {
+    color-scheme: light;
+    --paper: 245 239 228;
+    --paper-raised: 250 244 234;
+    --ink: 26 22 20;
+    --ink-muted: 139 127 110;
+    --ink-faint: 178 166 146;
+    --hairline: 227 218 199;
+    --accent: 139 30 40;
+    --ok: 50 135 78;
+    --bad: 184 40 52;
+    --cb-tag: 42 38 36;
+    --cb-ink: 255 255 255;
+  }
+  .q-passage svg, .q-prompt svg { filter: url("#q-img-tint-light"); }
 }
 </style>
 </head>
 <body>
+<svg class="theme-filter-defs" aria-hidden="true" focusable="false" width="0" height="0"
+     style="position:absolute;width:0;height:0;overflow:hidden">
+  <defs>
+    <filter id="q-img-tint-light" color-interpolation-filters="sRGB">
+      <feColorMatrix type="matrix" values="0.18249 0.61441 0.06192 0 0.10196  0.18083 0.60884 0.06136 0 0.08627  0.17334 0.58357 0.05881 0 0.07843  0 0 0 1 0"/>
+    </filter>
+    <filter id="q-img-tint-dark" color-interpolation-filters="sRGB">
+      <feColorMatrix type="matrix" values="-0.18334 -0.61715 -0.06220 0 0.94118  -0.17833 -0.60036 -0.06051 0 0.90980  -0.16749 -0.56388 -0.05684 0 0.85098  0 0 0 1 0"/>
+    </filter>
+  </defs>
+</svg>
 <div class="page">
   <header class="doc-head">
     <h1>SAT Practice 4 <span class="sub">· 错题本</span></h1>
@@ -454,6 +553,7 @@ body.answers-hidden .question:not(.is-revealed) .q-opt.is-picked-wrong {
   <div class="toolbar">
     <button id="toggle-answers" type="button">遮挡答案</button>
     <button id="toggle-rationale" type="button">展开全部解析</button>
+    <button id="toggle-theme" type="button" aria-label="切换颜色主题"></button>
   </div>
 
   <ol class="questions">
@@ -493,6 +593,34 @@ ${wrongItems.map(renderQuestion).join('\n')}
     document.querySelectorAll('.q-rationale').forEach((d) => (d.open = open));
     btn.textContent = open ? '收起全部解析' : '展开全部解析';
   });
+})();
+// 手动选择会被记住；首次打开时默认跟随系统深浅色。
+(function () {
+  const btn = document.getElementById('toggle-theme');
+  const root = document.documentElement;
+  const system = matchMedia('(prefers-color-scheme: dark)');
+  const render = () => {
+    const dark = root.classList.contains('dark');
+    btn.textContent = dark ? '浅色模式' : '深色模式';
+    btn.setAttribute('aria-pressed', String(dark));
+  };
+  const apply = (dark) => {
+    root.classList.toggle('dark', dark);
+    root.classList.toggle('light', !dark);
+    render();
+  };
+  btn.addEventListener('click', () => {
+    const dark = !root.classList.contains('dark');
+    apply(dark);
+    try { localStorage.setItem('sat-notebook-theme', dark ? 'dark' : 'light'); } catch (_) {}
+  });
+  system.addEventListener?.('change', (event) => {
+    try {
+      if (localStorage.getItem('sat-notebook-theme')) return;
+    } catch (_) {}
+    apply(event.matches);
+  });
+  render();
 })();
 // 遮挡答案（重做模式）：隐藏正确选项高亮、标签、题头答案、SPR 答案、解析。
 // 每题的「显示答案」按钮可单独揭开该题。
